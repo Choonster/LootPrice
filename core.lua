@@ -34,7 +34,7 @@ function LootPrice:CHAT_MSG_LOOT(CML, msg, ...)
 	
 	id = tonumber(id)
 	amount = tonumber(amount) or 1
-	print(id, amount)
+	
 	if id and ( self.db[id] ~= nil ) then
 		self.db[id].count = self.db[id].count + amount
 		LootPrice_DB = self.db
