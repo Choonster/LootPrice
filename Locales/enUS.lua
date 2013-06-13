@@ -1,8 +1,10 @@
-local L = LibStub("AceLocale-3.0"):NewLocale("LootPrice", "enUS", true)
+if GetLocale() ~= "enUS" then return end
 
-if not L then return end
+local _, ns = ...
+ns.locales = {}
+local L = ns.locales
 
---@localization(locale="enUS", format="lua_additive_table", handle-unlocalized="comment", same-key-is-true=true@
+--@localization(locale="enUS", format="lua_additive_table", handle-unlocalized="comment", same-key-is-true=true)@
 
 --@do-not-package@--
 L["^You receive %a+: |c%w+|Hitem:(%d+).+|rx?(%d-)%.+$"] = true

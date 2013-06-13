@@ -1,6 +1,6 @@
 ## Interface: 40200
 ## Title: LootPrice
-## Version: $project-version$
+## Version: @project-version@
 ## Notes: Calculates the gold made from looting specific items.
 ## SavedVariables: LootPrice_DB
 
