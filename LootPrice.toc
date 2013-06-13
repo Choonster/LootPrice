@@ -5,13 +5,15 @@
 ## Notes: Calculates the gold made from looting specific items.
 ## SavedVariables: LootPrice_DB
 
-Locales\enUS.lua
 Locales\deDE.lua
+Locales\enUS.lua
 Locales\esES.lua
 Locales\esMX.lua
 Locales\frFR.lua
+Locales\itIT.lua
 Locales\koKR.lua
 Locales\ptBR.lua
+Locales\ptPT.lua
 Locales\ruRU.lua
 Locales\zhCN.lua
 Locales\zhTW.lua
