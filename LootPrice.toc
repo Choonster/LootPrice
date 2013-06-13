@@ -1,13 +1,9 @@
-## Interface: 40200
+## Interface: 50300
 ## Title: LootPrice
+## Author: Choonster
 ## Version: @project-version@
 ## Notes: Calculates the gold made from looting specific items.
 ## SavedVariables: LootPrice_DB
-
-Libs\ChoonLib-1.0\Libstub\LibStub.lua
-Libs\ChoonLib-1.0\CallbackHandler-1.0\CallbackHandler.lua
-Libs\ChoonLib-1.0\ChoonLib-1.0\ChoonLib.lua
-Libs\AceLocale-3.0\AceLocale-3.0.lua
 
 Locales\enUS.lua
 Locales\deDE.lua
