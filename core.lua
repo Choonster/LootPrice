@@ -20,17 +20,60 @@ for k, v in pairs(L) do
 	end
 end
 
+local prefixprint, tabprint
+do
+	local prefix = "|cff33ff99" .. addon .. "|r:"
+
+	local colours = {
+		red = "|cffff0000",
+		cyan = "|cff33ff99",
+		green = "|cff00ff00",
+		blue = "|cff0000ff",
+		gold = "|cffffd800",
+		silver = "|cffb0b0b0",
+		copper = "|cff9a4f29",
+	}
+	
+	local colourTemp = {}
+	local function coloursub(...)
+		local numArgs = select("#", ...)
+		for i = 1, numArgs do
+			colourTemp[i] = tostring(select(i, ...)):gsub("%$(%a+)%$", colours)
+		end
+		return tconcat(colourTemp, " ", 1, numArgs)
+	end
+	
+	function prefixprint(...)
+		print(prefix, coloursub(...))
+	end
+	
+	local tabs = setmetatable({}, { -- Auto-generated indentation strings. For any integer index n, returns a string of n*4 spaces.
+		__index = function(self, indent)
+			local str = ("    "):rep(indent)
+			self[indent] = str
+			return str
+		end
+	})
+	
+	function tabprint(indent, ...)
+		print(tabs[indent], coloursub(...))
+	end
+end
+
 
 -- Wrapper function for string.gsub to be used on locale entries.
 -- Used instead of string.format to ensure that the proper strings are returned in languages with a different sentence structure to English
 -- (i.e the subsitutions need to be made in a different order)
-local localeTemp = {}
-local function LocaleSub(str, link, number, copper)
-	localeTemp.l = link
-	localeTemp.n = number
-	localeTemp.c = copper
-	
-	return str:gsub("%%(%a)", localeTemp)
+local LocaleSub
+do 
+	local localeTemp = {}
+	function LocaleSub(str, link, number, copper)
+		localeTemp.l = link or "<no link>"
+		localeTemp.n = number or "<no number>"
+		localeTemp.c = copper and GetCoinTextureString(copper) or "<no copper>"
+		
+		return (str:gsub("%%(%a)", localeTemp))
+	end
 end
 
 function LootPrice:ADDON_LOADED(name)
@@ -55,7 +98,7 @@ function LootPrice:CHAT_MSG_LOOT(msg, ...)
 		if self.db.spam then
 			local coins = data.price * data.count
 			local _, link = GetItemInfo(id)
-			self:Print(LocaleSub(L["You've looted %n %l, worth %c total."], link, data.count, coins))
+			prefixprint(LocaleSub(L["You've looted %n %l, worth %c total."], link, data.count, coins))
 		end
 	end
 end
@@ -63,43 +106,6 @@ end
 ------------------
 --Slash Commands--
 ------------------
-
-local tabs = setmetatable({}, { -- Auto-generated indentation strings. For any integer index n, returns a string of n*4 spaces.
-	__index = function(self, indent)
-		local str = ("    "):rep(indent)
-		self[indent] = str
-		return str
-	end
-})
-
-local prefix = "|cff33ff99" .. addon .. "|r"
-
-local colours = {
-	red = "|cffff0000",
-	cyan = "|cff33ff99",
-	green = "|cff00ff00",
-	blue = "|cff0000ff",
-	gold = "|cffffd800",
-	silver = "|cffb0b0b0",
-	copper = "|cff9a4f29",
-}
-
-local colourTemp = {}
-local function coloursub(...)
-	local numArgs = select("#", ...)
-	for i = 1, numArgs do
-		colourTemp[i] = select(i, ...):gsub("%$(%a+)%$", colours)
-	end
-	return tconcat(colourTemp, " ", 1, numArgs)
-end
-
-local function prefixprint(...)
-	print(prefix, coloursub(...))
-end
-
-local function tabprint(indent, ...)
-	print(tabs[indent], coloursub(...))
-end
 
 local function PrintHelp()
 	prefixprint(L["Slash command usage."])
@@ -114,30 +120,33 @@ local function PrintHelp()
 	tabprint(2, L["$red$Note:|r Using the item's link will always return the correct itemId, but using the item's name may return the wrong itemId if there are multiple items with that name."])
 end
 
+local function coinToNumber(str)
+	return str and tonumber(str:sub(1, -2)) or 0
+end
+
 local function HandleSlashCommand(msg)
-	local self = LootPrice
-	
-	local cmd, id, rawPrice = msg:lower():match("^%s-(%a+)%s-(%w+)%s-(%w-)%s-$") --Put the message in lower case, trim leading and trailing whitespace and split the message into command, id and price.
-	id = tonumber(id)
+	local cmd, id, rawPrice = msg:lower():match("^%s*(%a+)%s*(%w+)%s*(%w-)%s*$") --Put the message in lower case, trim leading and trailing whitespace and split the message into command, id and price.
+	id = tonumber(id) or id
 	
 	local link
 	if id then link = GetItemInfo(id) end
 	
-	local data = self.db[id]
+	local db = LootPrice.db
+	local data = db[id]
 	
 	if cmd == L["spam"] and id then -- Enable/disable price message when looting an item
-		self.db.spam = id == L["on"]
-		prefixprint(L["Price messages when looting an item now %s|r."]:format(self.db.spam and L["$green$enabled"] or L["$red$disabled"]))
+		db.spam = id == L["on"]
+		prefixprint(L["Price messages when looting an item now %s|r."]:format(db.spam and L["$green$enabled"] or L["$red$disabled"]))
 	
 	elseif cmd == L["add"] and id then -- Add the item to the DB
-		self.db[id] = data or {count = 0, price = 0}
+		db[id] = data or {count = 0, price = 0}
 		prefixprint(LocaleSub(L["Added %l (ID %n) to the DB."], link, id))	
 	
 	elseif cmd == L["set"] and id and data and rawPrice then -- Set the price of the item to the given amount
-		local g, s, c = rawPrice:match("^(%d+)g(%d+)s(%d+)c$")
-		g, s, c = tonumber(g), tonumber(s), tonumber(c)
+		local g, s, c = rawPrice:match("^(%d-g?)(%d-s?)(%d-c?)$")
+		g, s, c = coinToNumber(g), coinToNumber(s), coinToNumber(c)
 		
-		local copperPrice = (g or 0) * 10000 + (s or 0) * 100 + (c or 0) -- Convert the price to copper
+		local copperPrice = g * 10000 + s * 100 + c -- Convert the price to copper
 		data.price = copperPrice
 		prefixprint(LocaleSub(L["Set the price of %l (ID %n) to %c"], link, id, copperPrice))
 		
@@ -145,7 +154,7 @@ local function HandleSlashCommand(msg)
 		data.count = 0
 		prefixprint(LocaleSub(L["Reset the looted count of %l (ID %n)"], link, id))
 		
-	elseif cmd == L["display"] and id and self.db[id] then -- Display totals for the given item
+	elseif cmd == L["display"] and id and db[id] then -- Display totals for the given item
 		local itemPrice = data.price
 		local lootCount = data.count
 		local bagsCount = GetItemCount(id)
