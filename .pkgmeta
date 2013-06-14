@@ -1,3 +1,6 @@
+tools-used:
+    - findglobals
+
 enable-nolib-creation: no
 
 package-as: LootPrice
