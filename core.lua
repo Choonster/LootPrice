@@ -3,22 +3,14 @@ local addon, ns = ...
 -- List of globals for Mikk's FindGlobals script
 -- GLOBALS: GetItemCount, GetItemInfo, LootPrice_DB, SLASH_LOOTPRICE1, SLASH_LOOTPRICE2, SLASH_LOOTPRICE_ITEMID1, SLASH_LOOTPRICE_ITEMID2
 
-local print, tonumber, select, tconcat = print, tonumber, select, table.concat
+local print, tonumber, select = print, tonumber, select
+local match, gsub, strsub = string.match, string.gsub, string.sub
+local concat = table.concat
+local time = time
 
-local LootPrice = CreateFrame("Frame")
-LootPrice:RegisterEvent("ADDON_LOADED")
-LootPrice:RegisterEvent("CHAT_MSG_LOOT")
-
-LootPrice:SetScript("OnEvent", function(self, event, ...)
-	self[event](self, ...)
-end)
-
-local L = ns.locales
-for k, v in pairs(L) do
-	if v == true then
-		L[k] = k
-	end
-end
+-----------------------
+-- Utility functions --
+-----------------------
 
 local prefixprint, tabprint
 do
@@ -40,7 +32,7 @@ do
 		for i = 1, numArgs do
 			colourTemp[i] = tostring(select(i, ...)):gsub("%$(%a+)%$", colours)
 		end
-		return tconcat(colourTemp, " ", 1, numArgs)
+		return concat(colourTemp, " ", 1, numArgs)
 	end
 	
 	function prefixprint(...)
@@ -60,7 +52,6 @@ do
 	end
 end
 
-
 -- Wrapper function for string.gsub to be used on locale entries.
 -- Used instead of string.format to ensure that the proper strings are returned in languages with a different sentence structure to English
 -- (i.e the subsitutions need to be made in a different order)
@@ -72,28 +63,106 @@ do
 		localeTemp.n = number or "<no number>"
 		localeTemp.c = copper and GetCoinTextureString(copper) or "<no copper>"
 		
-		return (str:gsub("%%(%a)", localeTemp))
+		return (gsub(str, "%%(%a)", localeTemp))
 	end
 end
+
+--------------------
+-- Implementation --
+--------------------
+local DB
+
+local Session = {}
+Session.__index = function(self, key)
+	if rawget(Session, key) then
+		return Session[key]
+	elseif DB.priceData[key] then
+		self[key] = 0
+		return 0
+	end
+end
+
+setmetatable(Session, Session)
+
+function Session:New()
+	local currentSession = DB.currentSession
+	if currentSession then
+		currentSession:Stop()
+		currentSession:Archive()
+	end
+	
+	local instance = setmetatable({}, self)
+	DB.currentSession = instance
+	instance:Start()
+	return instance
+end
+
+function Session:Start()
+	self.startTime = time()
+end
+
+function Session:Stop()
+	self.endTime = time()
+end
+
+function Session:Archive()
+	assert(DB.currentSession == self, "Attempt to acrhive an inactive session")
+	tinsert(DB.previousSessions, self)
+end
+
+-- This should be incremented whenever the structure of the SavedVariable table changes
+local DB_VERSION = 1
+
+local function UpgradeDB()
+	DB.version = DB.version or 0
+	
+	if db.version < 1 then
+	end
+end
+
+
+
+
+local L = ns.locales
+for english, localised in pairs(L) do -- `L["some phrase"] = true` becomes `L["some phrase"] = "some phrase"`
+	if localised == true then
+		L[english] = english
+	end
+end
+
+local LootPrice = CreateFrame("Frame")
+LootPrice:RegisterEvent("ADDON_LOADED")
+LootPrice:RegisterEvent("CHAT_MSG_LOOT")
+
+LootPrice:SetScript("OnEvent", function(self, event, ...)
+	self[event](self, ...)
+end)
+
+
 
 function LootPrice:ADDON_LOADED(name)
 	if name ~= addon then return end
 	
-	self.db = LootPrice_DB or {}
-	LootPrice_DB = self.db
+	LootPrice_DB = LootPrice_DB or {}
+	DB = LootPrice_DB
 	
 	self:UnregisterEvent("ADDON_LOADED")
 end
 
 function LootPrice:CHAT_MSG_LOOT(msg, ...)
-	local id, amount = msg:match(L["^You receive %a+: |c%w+|Hitem:(%d+).+|rx?(%d-)%.+$"])
+	local id, amount = match(msg, L["^You receive %a+: |c%w+|Hitem:(%d+).+|rx?(%d-)%.+$"])
 	
 	id = tonumber(id)
 	amount = tonumber(amount) or 1
 	
-	local data = self.db[id]
+	local data = DB[id]
 	if data then
 		data.count = data.count + amount
+		
+		local sessionData = db.currentSession[id]
+		if sessionData then
+			sessionData.count = sessionData.count + amount
+		end
 		
 		if self.db.spam then
 			local coins = data.price * data.count
@@ -121,25 +190,24 @@ local function PrintHelp()
 end
 
 local function coinToNumber(str)
-	return str and tonumber(str:sub(1, -2)) or 0
+	return str and tonumber(strsub(str, 1, -2)) or 0
 end
 
 local function HandleSlashCommand(msg)
-	local cmd, id, rawPrice = msg:lower():match("^%s*(%a+)%s*(%w+)%s*(%w-)%s*$") --Put the message in lower case, trim leading and trailing whitespace and split the message into command, id and price.
+	local cmd, id, rawPrice = msg:lower():match("^%s*(%S+)%s*(%S+)%s*(%S-)%s*$") --Put the message in lower case, trim leading and trailing whitespace and split the message into command, id and price.
 	id = tonumber(id) or id
 	
 	local link
 	if id then link = GetItemInfo(id) end
 	
-	local db = LootPrice.db
-	local data = db[id]
+	local data = DB[id]
 	
 	if cmd == L["spam"] and id then -- Enable/disable price message when looting an item
-		db.spam = id == L["on"]
-		prefixprint(L["Price messages when looting an item now %s|r."]:format(db.spam and L["$green$enabled"] or L["$red$disabled"]))
+		DB.spam = id == L["on"]
+		prefixprint(L["Price messages when looting an item now %s|r."]:format(DB.spam and L["$green$enabled"] or L["$red$disabled"]))
 	
 	elseif cmd == L["add"] and id then -- Add the item to the DB
-		db[id] = data or {count = 0, price = 0}
+		DB[id] = data or {count = 0, price = 0}
 		prefixprint(LocaleSub(L["Added %l (ID %n) to the DB."], link, id))	
 	
 	elseif cmd == L["set"] and id and data and rawPrice then -- Set the price of the item to the given amount
@@ -154,7 +222,7 @@ local function HandleSlashCommand(msg)
 		data.count = 0
 		prefixprint(LocaleSub(L["Reset the looted count of %l (ID %n)"], link, id))
 		
-	elseif cmd == L["display"] and id and db[id] then -- Display totals for the given item
+	elseif cmd == L["display"] and id and DB[id] then -- Display totals for the given item
 		local itemPrice = data.price
 		local lootCount = data.count
 		local bagsCount = GetItemCount(id)
