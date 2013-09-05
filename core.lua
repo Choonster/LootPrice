@@ -325,7 +325,7 @@ do
 		end
 
 		if numInvalidSpecifiers == 0 then
-			return true
+			return pcall(date, input) -- If it looks valid, try to call date() with it.
 		else
 			return false, format(L["Invalid date specifier(s): %s"], tconcat(invalidSpecifiers, ", ", 1, numInvalidSpecifiers))
 		end
