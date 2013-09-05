@@ -25,7 +25,7 @@ do
 		silver = "|cffb0b0b0",
 		copper = "|cff9a4f29",
 	}
-	
+
 	local colourTemp = {}
 	local function coloursub(...)
 		local numArgs = select("#", ...)
@@ -34,11 +34,11 @@ do
 		end
 		return tconcat(colourTemp, " ", 1, numArgs)
 	end
-	
+
 	function prefixprint(...)
 		print(prefix, coloursub(...))
 	end
-	
+
 	local tabs = setmetatable({}, { -- Auto-generated indentation strings. For any integer index n, returns a string of n*4 spaces.
 		__index = function(self, indent)
 			local str = ("    "):rep(indent)
@@ -46,7 +46,7 @@ do
 			return str
 		end
 	})
-		
+
 	function tabprint(indent, ...)
 		print(tabs[indent], coloursub(...))
 	end
@@ -58,13 +58,13 @@ end
 -- Used instead of string.format to ensure that the proper strings are returned in languages with a different sentence structure to English
 -- (i.e the subsitutions need to be made in a different order)
 local LocaleSub
-do 
+do
 	local localeTemp = {}
 	function LocaleSub(str, link, number, copper)
 		localeTemp.l = link or "<no link>"
 		localeTemp.n = number or "<no number>"
 		localeTemp.c = copper and GetCoinTextureString(copper) or "<no copper>"
-		
+
 		return (gsub(str, "%%(%S)", localeTemp))
 	end
 end
@@ -92,15 +92,15 @@ function Session:New()
 	if currentSession then
 		currentSession:Stop()
 	end
-	
+
 	local instance = setmetatable({
 		isCurrentSession = true,
 		startTime = time(),
 		totals = setmetatable({}, sessionTotalsMT)
 	}, Session)
-	
+
 	DB.currentSession = instance
-	
+
 	return instance
 end
 
@@ -125,21 +125,21 @@ function Session:GetBriefDesc(sessionID)
 		return format(L["Current Session - Started: %s, Current Total: %s"], date(DB.dateFormat, self.startTime), GetCoinTextureString(self:GetTotal()))
 	else
 		return format(L["Previous Session #%d - Started: %s, Ended: %s, Total: %s"], date(DB.dateFormat, self.startTime), date(DB.dateFormat, self.endTime), GetCoinTextureString(self:GetTotal()))
-	end	
+	end
 end
 
 do
 	local temp = {}
 	function Session:GetFullDesc(sessionID)
 		temp[1] = self:GetBriefDesc(sessionID)
-		
+
 		local lines = 1
 		for id, total in pairs(self.totals) do
 			lines = lines + 1
 			local _, link = GetItemInfo(id)
 			temp[lines] = "    " .. LocaleSub(L["%l * %n = %c"], link, total, total * DB.priceData[id].price)
 		end
-		
+
 		return tconcat(temp, 1, lines)
 	end
 end
@@ -154,10 +154,10 @@ end
 
 local function UpgradeDB()
 	DB.version = DB.version or 0
-	
+
 	if DB.version < 1 then
 		DB.version = 1
-		
+
 		DB.priceData = {}
 		for itemID, data in pairs(DB) do -- Move all the price data to the new priceData subtable
 			if type(itemID) == "number" then
@@ -165,11 +165,11 @@ local function UpgradeDB()
 				DB[itemID] = nil
 			end
 		end
-		
+
 		DB.totalSpam = DB.spam
 		DB.spam = nil
 		DB.sessionSpam = true
-		DB.dateFormat = "%c"
+		DB.dateFormat = "%m/%d/%Y %H:%M:%S"
 	end
 end
 
@@ -196,16 +196,16 @@ end)
 
 function LootPrice:ADDON_LOADED(name)
 	if name ~= addon then return end
-	
+
 	LootPrice_DB = LootPrice_DB or {}
 	DB = LootPrice_DB
-	
+
 	UpgradeDB()
 	for id, session in DB.previousSessions do
 		-- WoW's SavedVariables system only saves the tables themselves, so we need to set the metatable of the previous session tables to use Session methods on them
 		setmetatable(session, Session)
 	end
-	
+
 	self:UnregisterEvent("ADDON_LOADED")
 end
 
@@ -218,25 +218,25 @@ end
 
 function LootPrice:CHAT_MSG_LOOT(msg, ...)
 	local id, amount = match(msg, L["^You receive %a+: |c%w+|Hitem:(%d+).+|rx?(%d-)%.+$"])
-	
+
 	id = tonumber(id)
 	amount = tonumber(amount) or 1
-	
+
 	local data = DB.priceData[id]
 	if data then
 		data.count = data.count + amount
-		
+
 		local sessionData = DB.currentSession and DB.currentSession.totals[id]
 		if sessionData then
 			sessionData.count = sessionData.count + amount
-			
+
 			if DB.sessionSpam then
 				local coins = sessionData.price * sessionData.count
 				local _, link = GetItemInfo(id)
 				prefixprint(L["Current Session"], "-", LocaleSub(L["%l * %n = %c"], link, data.count, coins))
 			end
 		end
-		
+
 		if DB.totalSpam then
 			local coins = data.price * data.count
 			local _, link = GetItemInfo(id)
@@ -264,16 +264,72 @@ local function PrintHelp()
 	tabprint(3, L["$red$previous|r (the most recent previous session),"])
 	tabprint(3, L["$red$all|r (all sessions),"])
 	tabprint(3, L["or the number of a previous session (1 is the first recorded session, 2 is the one after that, etc.)"])
+	tabprint(1, L["$red$date format|r -- Set the date format to $red$format|r."])
+	tabprint(2, L["This format uses special codes starting with a percent sign (%) to display dates and times in various ways. These codes differ for Windows and Mac clients."])
+	tabprint(2, L["The default format is \"%m/%d/%Y %H:%M:%S\", which displays the date as \"month/day/year hour:minute:second\" (a common American format). Non-American users may wish to swap %m and %d so the date displays as \"day/month/year ...\" instead."])
+	tabprint(2, L["This command does some basic checks to warn you about invalid codes, but it may not catch all cases. If you get a Lua error saying \"'date' format too long\", it means your format has one or more invalid codes in it."])
+	tabprint(2, L["To see a full list of codes for your client, please follow the links in the AddOn's Curse/WoW Interface description page."])
 end
 
 local function PrintIDHelp()
 	prefixprint(L["Slash command usage -"], L["$red$/lootpriceitemid|r or $red$/lpitemid itemLink||itemName|r"])
-	tabprint(2, L["Displays the itemId of the given item."])
-	tabprint(2, L["$red$Note:|r Using the item's link will always return the correct itemId, but using the item's name may return the wrong itemId if there are multiple items with that name."])
+	tabprint(1, L["Displays the itemId of the given item."])
+	tabprint(1, L["$red$Note:|r Using the item's link will always return the correct itemId, but using the item's name may return the wrong itemId if there are multiple items with that name."])
 end
 
 local function coinToNumber(str)
 	return str and tonumber(strsub(str, 1, -2)) or 0
+end
+
+local verifyDateFormat
+do
+	local specifiers = { -- ANSI C strftime conversion specifiers (usable on Windows and Mac)
+		a = true, A = true, b = true,
+		B = true, c = true, d = true,
+		H = true, I = true, j = true,
+		m = true, M = true, p = true,
+		S = true, U = true, w = true,
+		W = true, x = true, X = true,
+		y = true, Y = true, Z = true,
+		["%"] = true,
+	}
+
+	local specifierPattern
+
+	if IsWindowsClient() then -- Windows only adds one specifiers and one optional flag to the standard set.
+		specifiers.z = true
+		specifierPattern = "%%#?(%S)"
+	elseif IsMacClient() then -- Mac adds specifiers from POSIX, Olson's timezone package, GNU C Library and C99. It also adds several optional flags.
+		local S = specifiers
+		S["+"], S.B, S.C = true, true, true
+		S.D, S.e, S.F = true, true, true
+		S.G, S.g, S.h = true, true, true
+		S.k, S.l, S.n = true, true, true
+		S.O, S.R, S.r = true, true, true
+		S.s, S.t, S.T = true, true, true
+		S.u, S.V, S.v = true, true, true
+		S.X, S.y, S.z = true, true, true
+		specifierPattern = "%%[_0%-%^]?%d*[EO]?(%S)"
+	else
+		error("Client not recognised as Windows or Mac. Something has gone horribly wrong!")
+	end
+
+	local invalidSpecifiers = {}
+	function verifyDateFormat(input)
+		local numInvalidSpecifiers = 0
+		for specifier in input:gmatch(specifierPattern) do
+			if not specifiers[specifier] then
+				numInvalidSpecifiers = numInvalidSpecifiers + 1
+				invalidSpecifiers[numInvalidSpecifiers] = s
+			end
+		end
+
+		if numInvalidSpecifiers == 0 then
+			return true
+		else
+			return false, format(L["Invalid date specifier(s): %s"], tconcat(invalidSpecifiers, ", ", 1, numInvalidSpecifiers))
+		end
+	end
 end
 
 local handlers = {
@@ -290,42 +346,42 @@ local handlers = {
 			return true
 		end
 	end,
-	
+
 	[L.add] = function(id, _, link, data, _)
 		DB.priceData[id] = data or {count = 0, price = 0}
 		prefixprint(LocaleSub(L["Added %l (ID %n) to the DB."], link, id))
 	end,
-	
+
 	[L.set] = function(id, rawPrice, link, data, _)
 		if not (rawPrice and link and data) then return true end
-		
+
 		local g, s, c = rawPrice:match("^(%d-g?)(%d-s?)(%d-c?)$")
 		g, s, c = coinToNumber(g), coinToNumber(s), coinToNumber(c)
-		
+
 		local copperPrice = g * 10000 + s * 100 + c -- Convert the price to copper
 		data.price = copperPrice
 		prefixprint(LocaleSub(L["Set the price of %l (ID %n) to %c"], link, id, copperPrice))
 	end,
-	
+
 	[L.reset] = function(id, _, link, data, _)
 		if not (link and data) then return true end
-		
+
 		data.count = 0
 		prefixprint(LocaleSub(L["Reset the looted count of %l (ID %n)"], link, id))
 	end,
-	
+
 	[L.display] = function(id, _, link, data, _)
 		if not (link and data) then return true end
-		
+
 		local itemPrice, lootCount, bagsCount = data.price, data.count, GetItemCount(id)
 		prefixprint(LocaleSub(L["Displaying information for %l (ID %n)."], link, id))
 		tabprint(2, LocaleSub(L["Looted: %n worth %c total."], nil, lootCount, itemPrice * lootCount))
 		tabprint(2, LocaleSub(L["In bags: %n worth %c total."], nil, bagsCount, itemPrice * bagsCount))
 	end,
-	
+
 	[L.session] = function(cmd, sessionID, _, _, _)
 		if not (cmd and sessionID) then return true end
-		
+
 		local currentSession = DB.currentSession
 		if cmd == L["start"] then
 			Session:New()
@@ -340,7 +396,7 @@ local handlers = {
 			if sessionID == L["current"] then
 				if currentSession then
 					currentSession:Display()
-				else	
+				else
 					prefixprint(L["No active session."])
 				end
 			elseif sessionID == L["previous"] then
@@ -371,22 +427,29 @@ local handlers = {
 			return true
 		end
 	end,
-	
+
 	[L.date] = function(_, _, _, _, input)
-		
+		input = input:trim()
+
+		local valid, errors = verifyDateFormat(input)
+		if valid then
+			DB.dateFormat = input
+		else
+			prefixprint(errors)
+		end
 	end,
 }
 
 local function HandleSlashCommand(input)
 	local cmd, id, rawPrice = input:lower():match("^%s*(%S+)%s*(%S+)%s*(%S-)%s*$") -- Put the message in lower case, trim leading and trailing whitespace and split the message into command, id and price.
 	id = tonumber(id) or id
-	
+
 	local link, data
 	if type(id) == "number" then
 		link = GetItemInfo(id)
 		data = DB.priceData[id]
 	end
-	
+
 	local printHelp = false
 	local handler = handlers[cmd]
 	if handler and id then
@@ -394,7 +457,7 @@ local function HandleSlashCommand(input)
 	else
 		printHelp = true
 	end
-	
+
 	if printHelp then
 		PrintHelp()
 	end
@@ -402,15 +465,15 @@ end
 
 local function HandleIDSlashCommand(msg) -- Returns the id and link of the given item. Takes input in the same format as the /lpitemid slash command.
 	local itemLink = msg:match("^%s*(.-)%s*$")
-	
+
 	if not itemLink:find("|H") then -- If this is an item name, get the link from GetItemInfo
 		local _
 		_, itemLink = GetItemInfo(itemLink)
 		itemLink = itemLink or ""
 	end
-	
+
 	local itemID = itemLink:match("^|c%x+|Hitem:(%d+):.+|h|r$")
-	
+
 	if itemID and itemLink ~= "" then
 		prefixprint(LocaleSub(L["The itemID of %l is %n."], itemLink, itemID))
 	else
