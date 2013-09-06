@@ -18,4 +18,6 @@ Locales\ruRU.lua
 Locales\zhCN.lua
 Locales\zhTW.lua
 
-core.lua
+Core.lua
+SlashCommands.lua
+BrokerPlugin.lua
