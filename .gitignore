@@ -1,6 +1,8 @@
 # A folder to dump stuff that shouldn't be committed to the repo
 DoNotPackage/*
 
+Libs/*
+
 #################
 ## Eclipse
 #################

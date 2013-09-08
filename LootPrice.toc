@@ -4,6 +4,13 @@
 ## Version: @project-version@
 ## Notes: Calculates the gold made from looting specific items.
 ## SavedVariables: LootPrice_DB
+## OptionalDeps: LibStub, CallBackHandler-1.0, LibDataBroker-1.1
+
+#@no-lib-strip@
+Libs\Libstub\Libstub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+#@end-no-lib-strip@
 
 Locales\deDE.lua
 Locales\enUS.lua

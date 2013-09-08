@@ -33,6 +33,8 @@ L["/lp"] = true
 L["/lpitemid"] = true
 L["Added %l (ID %n) to the DB."] = true
 L["all"] = true
+L["Click to start a new session"] = true
+L["Click to stop the current session"] = true
 L["Current Session - Started: %s, Current Total: %s"] = true
 L["Current Session"] = true
 L["current"] = true
@@ -44,6 +46,7 @@ L["In bags: %n worth %c total."] = true
 L["Invalid date specifier(s): %s"] = true
 L["Looted: %n worth %c total."] = true
 L["New session started."] = true
+L["New session"] = true
 L["No active session."] = true
 L["No previous session."] = true
 L["on"] = true
@@ -64,7 +67,7 @@ L["This command does some basic checks to warn you about invalid codes, but it m
 L["This format uses special codes starting with a percent sign (%) to display dates and times in various ways. These codes differ for Windows and Mac clients."] = true
 L["To see a full list of codes for your client, please follow the links in the AddOn's Curse/WoW Interface description page."] = true
 L["Total price messages when looting an item now %s|r."] = true
-L["Total"] = true
 L["total"] = true
+L["Total"] = true
 L["^You receive %a+: |c%w+|Hitem:(%d+).+|rx?(%d-)%.+$"] = true
 --@end-do-not-package@--
